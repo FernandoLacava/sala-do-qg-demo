@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sala do QG: um castelo em pixel art que mostra o que cada agente de IA está fazendo. Demonstração.">
+<title>Sala do QG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fundo: #120f1a; --painel: #1d1828; --painel2: #251f33; --borda: #3a3150; --texto: #f1ebf8;
+    --suave: #a99fbd; --ouro: #f2c14e; --ouro-escuro: #b8862a; --vivo: #ff5c6c;
+    --trab: #5fd67a; --esp: #f2c14e; --desc: #8a9dff;
+    --pixel: "Press Start 2P", ui-monospace, monospace;
+    --mestre: #4c7be8; --escudeiro: #2fb36e; --mago: #9a63e6; --guerreiro: #e0405c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fundo); color: var(--texto); }
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+  main { max-width: 1180px; margin: 0 auto; padding: 18px 16px 32px; }
+
+  header.topo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
+  .marca { display: flex; align-items: center; gap: 10px; }
+  .marca canvas { width: 34px; height: 34px; image-rendering: pixelated; }
+  .marca h1 { font: 16px/1.3 var(--pixel); color: var(--ouro); margin: 0; letter-spacing: 1px; text-shadow: 2px 2px 0 #000; }
+  .marca small { display: block; font: 8px/1.6 var(--pixel); color: var(--suave); letter-spacing: .5px; }
+  .contadores { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pilula { display: flex; align-items: center; gap: 8px; background: var(--painel); border: 2px solid var(--borda); padding: 7px 10px; font: 8px/1.4 var(--pixel); color: var(--suave); box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+  .pilula b { font-size: 13px; color: var(--texto); }
+  .pilula i { width: 8px; height: 8px; display: inline-block; }
+  .espaco { flex: 1; }
+  .status { display: flex; align-items: center; gap: 10px; font: 9px/1 var(--pixel); }
+  .status .modo { display: flex; align-items: center; gap: 6px; color: var(--vivo); }
+  .status .modo span { width: 8px; height: 8px; background: currentColor; animation: piscar 1.2s steps(2) infinite; }
+  .status .modo.demo { color: var(--ouro); }
+  .status .relogio { font-size: 13px; color: var(--texto); background: var(--painel); border: 2px solid var(--borda); padding: 6px 8px; }
+  @keyframes piscar { 50% { opacity: .15; } }
+  .botao { font: 8px/1 var(--pixel); color: var(--texto); background: var(--painel2); border: 2px solid var(--borda); padding: 8px 9px; cursor: pointer; box-shadow: inset 0 -2px 0 rgba(0,0,0,.4); }
+  .botao:hover { border-color: var(--ouro); color: var(--ouro); }
+  .botao:focus-visible { outline: 2px solid var(--ouro); outline-offset: 2px; }
+
+  .palco { border: 4px solid #2a2238; outline: 2px solid #0a0810; background: #000; box-shadow: 0 10px 40px rgba(0,0,0,.55); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+  .quadro { position: relative; min-width: 720px; }
+  .dica { display: none; color: var(--suave); font-size: 12px; margin: 6px 0 0; }
+  @media (max-width: 760px) { .dica { display: block; } }
+  .palco canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; image-rendering: pixelated; touch-action: manipulation; }
+  .nome { position: absolute; transform: translate(-50%, 0); pointer-events: none; font: 7px/1 var(--pixel); color: var(--texto); background: rgba(14,11,22,.82); border: 1px solid rgba(255,255,255,.12); padding: 3px 5px 3px 4px; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+  .nome i { width: 6px; height: 6px; display: inline-block; }
+  .nome.esperando { color: var(--ouro); border-color: var(--ouro-escuro); }
+  @media (min-width: 900px) { .nome { font-size: 8px; } }
+
+  .cartao { position: absolute; z-index: 3; width: 250px; pointer-events: none; display: none; background: linear-gradient(#231d31, #1a1525); border: 2px solid var(--ouro-escuro); box-shadow: 0 0 0 2px #0a0810, 0 12px 30px rgba(0,0,0,.6); padding: 12px 13px; font-size: 13px; }
+  .cartao h3 { margin: 0 0 8px; font: 9px/1.5 var(--pixel); display: flex; gap: 8px; align-items: center; }
+  .cartao h3 i { width: 9px; height: 9px; display: inline-block; flex: none; }
+  .cartao .chip { display: inline-block; font: 7px/1 var(--pixel); padding: 4px 6px; border: 1px solid currentColor; margin-right: 6px; vertical-align: 1px; }
+  .cartao .atual { margin: 0 0 4px; }
+  .cartao .tempo { color: var(--suave); font-size: 12px; margin: 0 0 8px; }
+  .cartao h4 { font: 7px/1 var(--pixel); color: var(--suave); margin: 10px 0 6px; }
+  .cartao ul { margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--suave); }
+  .cartao li { padding: 2px 0; }
+
+  .faixa { margin-top: 14px; background: var(--painel); border: 2px solid var(--borda); }
+  .faixa h2 { margin: 0; padding: 10px 12px; font: 8px/1 var(--pixel); color: var(--suave); border-bottom: 2px solid var(--borda); display: flex; align-items: center; gap: 8px; }
+  .faixa h2 span { width: 7px; height: 7px; background: var(--vivo); animation: piscar 1.2s steps(2) infinite; }
+  .faixa ul { list-style: none; margin: 0; padding: 4px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .faixa li { padding: 6px 12px; display: flex; gap: 10px; align-items: center; font-size: 13.5px; color: var(--suave); border-bottom: 1px solid rgba(255,255,255,.04); }
+  .faixa li.novo { color: var(--texto); animation: chegar .6s ease-out; }
+  @keyframes chegar { from { background: rgba(242,193,78,.18); } to { background: transparent; } }
+  .faixa .h { font: 9px/1 var(--pixel); color: var(--ouro); flex: none; }
+  .faixa i { width: 8px; height: 8px; flex: none; }
+  .faixa .vazio { color: var(--suave); padding: 10px 12px; }
+  .rodape { color: var(--suave); font-size: 12.5px; margin-top: 12px; }
+
+  [hidden] { display: none !important; }
+  @media (max-width: 620px) { .marca h1 { font-size: 12px; } .faixa ul { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .status .modo span, .faixa h2 span { animation: none; } }
+</style>
+</head>
+<body>
+
+<main id="sala">
+  <header class="topo">
+    <div class="marca">
+      <canvas id="brasao" width="16" height="16"></canvas>
+      <div><h1>SALA DO QG</h1><small>Mestre · Escudeiro · Mago · Guerreiro</small></div>
+    </div>
+    <div class="contadores" aria-live="polite">
+      <span class="pilula"><i style="background:var(--trab)"></i>TRABALHANDO <b id="nTrab">0</b></span>
+      <span class="pilula"><i style="background:var(--esp)"></i>ESPERANDO VOCÊ <b id="nEsp">0</b></span>
+      <span class="pilula"><i style="background:var(--desc)"></i>DESCANSANDO <b id="nDesc">0</b></span>
+    </div>
+    <span class="espaco"></span>
+    <div class="status">
+      <span class="modo" id="modo"><span></span><em style="font-style:normal" id="modoTexto">AO VIVO</em></span>
+      <span class="relogio" id="relogio">--:--</span>
+      <button class="botao" id="pausar" hidden>PAUSAR</button>
+      <button class="botao" id="reiniciar" hidden>RECOMEÇAR</button>
+    </div>
+  </header>
+
+  <div class="palco" id="palco">
+    <div class="quadro" id="quadro">
+      <canvas id="tela" width="480" height="270" role="img" aria-label="Sala do QG: os quatro heróis no salão do castelo, cada um na sua estação de trabalho ou descansando na taverna."></canvas>
+      <div id="nomes"></div>
+      <div class="cartao" id="cartao" role="status"></div>
+    </div>
+  </div>
+  <p class="dica">Arraste para os lados para ver o salão inteiro. Toque num herói para ver o que ele está fazendo.</p>
+
+  <section class="faixa">
+    <h2><span></span>FAIXA AO VIVO · ÚLTIMAS 24H</h2>
+    <ul id="faixa"></ul>
+  </section>
+  <p class="rodape" id="rodape">A sala mostra só o que cada herói está fazendo e quando. Nenhum conteúdo de mensagens, comandas ou tarefas aparece aqui.</p>
+</main>
+
+<script>
+(() => {
+'use strict';
+const W = 480, H = 270;
+const $ = (id) => document.getElementById(id);
+const DEMO = true; // versão pública: só a demonstração, sem API e sem chave
+
+// =====================================================================
+// Pixel helpers
+// =====================================================================
+const r = (g, x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x | 0, y | 0, w | 0, h | 0); };
+function semente(n) { let s = n % 2147483647; if (s <= 0) s += 2147483646; return () => (s = s * 16807 % 2147483647) / 2147483647; }
+function hex(c) { return `rgb(${c[0]},${c[1]},${c[2]})`; }
+function stamp(g, x0, y0, linhas, cores) {
+  for (let y = 0; y < linhas.length; y++) for (let x = 0; x < linhas[y].length; x++) {
+    const ch = linhas[y][x]; if (ch !== '.' && cores[ch]) r(g, x0 + x, y0 + y, 1, 1, cores[ch]);
+  }
+}
+
+// =====================================================================
+// Heróis: as mesmas grades dos avatares (gerar_avatares.py)
+// =====================================================================
+const LARG = 22;
+const BASE = { K: [24, 20, 37], S: [247, 196, 160], E: [24, 20, 37], W: [255, 255, 255], w: [200, 205, 220], G: [255, 205, 60], g: [200, 140, 30], T: [150, 95, 55], B: [80, 62, 58] };
+const CORPO = [
+  '....KKKKGGGGGGKKKK....', '...KAAAKAAAAAAKAAAK...', '...KAAaKAAGGAAKaAAK...', '....KaKKAAAAAAKKaK....',
+  '....KSK.KaaaaK.KSK....', '....KKK.KGGGGK.KKK....', '........KAAAAK........', '.......KAAKKAAK.......',
+  '......KAAK..KAAK......', '......KaaK..KaaK......', '......KBBK..KBBK......', '.....KBBBK..KBBBK.....', '.....KKKKK..KKKKK.....',
+];
+const PASSO = [
+  '.......KAAKKAAK.......', '......KAAK..KAAK......', '......KBBK..KaaK......',
+  '.....KBBBK..KBBK......', '.....KKKKK..KBBBK.....', '............KKKKK.....',
+];
+const espelho = (l) => l.split('').reverse().join('');
+const CORPO_A = CORPO.slice(0, 7).concat(PASSO);
+const CORPO_B = CORPO.slice(0, 7).concat(PASSO.map(espelho));
+const MANTO = CORPO.slice(0, 6).concat([
+  '.......KAAAAAAK.......', '.......KAAAAAAK.......', '......KAAAAAAAAK......', '......KAaAAAAaAK......',
+  '.....KAAaAAAAaAAK.....', '.....KGGGGGGGGGGK.....', '.....KKKKKKKKKKKK.....',
+]);
+const MANTO_A = MANTO.slice(0, 10).concat(['.....KAaAAAAaAAAK.....', '.....KGGGGGGGGGGK.....', '.....KKKKKKKKKKKK.....']);
+const MANTO_B = MANTO.slice(0, 10).concat(['.....KAAAaAAAAaAK.....', '.....KGGGGGGGGGGK.....', '.....KKKKKKKKKKKK.....']);
+
+function capa(n, cor = 'R', linhas = 11, abre = 4) {
+  const out = [];
+  for (let i = 0; i < linhas; i++) {
+    const e = 3 - Math.floor(i / abre), d = 18 + Math.floor(i / abre);
+    const l = Array(LARG + 8).fill('.');
+    for (let x = e; x <= d; x++) l[x + 4] = cor;
+    l[e + 4] = l[d + 4] = 'K';
+    if (i === linhas - 1) for (let x = e; x <= d; x++) l[x + 4] = 'K';
+    out.push(l.join(''));
+  }
+  return [-4, n, out];
+}
+
+const DEFS = {
+  mestre: {
+    nome: 'Mestre das Rotas', curto: 'Mestre', cor: '#4c7be8',
+    cores: { A: [60, 105, 215], a: [38, 68, 150], C: [60, 105, 215], c: [38, 68, 150], R: [38, 68, 150], F: [255, 205, 60] },
+    cabeca: ['........KKKKKK........', '.......KCCCCCCK.......', '......KCCCCCCCCK......', '......KCcKKKKcCK......', '......KCKSSSSKCK......', '......KCKESSEKCK......', '......KCKSSSSKCK......', '......KCcKSSKcCK......', '.......KCcKKcCK.......'],
+    manto: false,
+    atras: (n) => [capa(n)],
+    frente: (n) => [
+      [18, -2, ['G'].concat(Array(n + 14).fill('T'))],
+      [17, n + 4, ['SS']],
+      [19, -1, ['KKKKKKKK.', 'FFFKFFFFK', 'FFFFKFFFK', 'FKKKKKFFK', 'FFFFKFFFK', 'FFFKFFFFK', 'KKKKKKKK.']],
+    ],
+  },
+  escudeiro: {
+    nome: 'Escudeiro do Dia a Dia', curto: 'Escudeiro', cor: '#2fb36e',
+    cores: { A: [30, 160, 96], a: [18, 112, 70], H: [110, 62, 38], R: [214, 48, 60], D: [52, 96, 200], Y: [255, 220, 70] },
+    cabeca: ['.........K..K.........', '........KHKKHK........', '.......KHHHHHHK.......', '.......KHHHHHHK.......', '.......KHHSSSHK.......', '.......KSSSSSSK.......', '.......KSESSESK.......', '.......KSSSSSSK.......', '........KKSSKK........'],
+    manto: false,
+    atras: () => [],
+    frente: (n) => [
+      [15, -3, ['..K..', '.KWK.', '.KWK.', '.KWK.', '.KWK.', '.KWK.', '.KWK.', 'KGGGK', '.KSK.', '.KAK.', '.KAK.', '.KAK.', '.KAK.']],
+      [-1, n + 1, ['.KKKKKK.', 'KDDDDDDK', 'KDDYYDDK', 'KDYYYYDK', 'KDYYYYDK', 'KDDYYDDK', '.KDDDDK.', '..KDDK..', '...KK...']],
+    ],
+    apaga: (n) => { const o = []; for (const y of [3, 4, 5]) for (const x of [15, 16, 17]) o.push([x, n + y]); return o; },
+  },
+  mago: {
+    nome: 'Mago dos Estudos', curto: 'Mago', cor: '#9a63e6',
+    cores: { A: [126, 78, 214], a: [88, 50, 160], H: [126, 78, 214], h: [88, 50, 160], O: [90, 220, 255], o: [40, 150, 220] },
+    cabeca: ['...........KK.........', '..........KHHK........', '.........KHHHK........', '.........KHHHHK.......', '........KHHHHHHK......', '........KGGGGGGK......', '....KKKKHHHHHHHHKKKK..', '....KHHHHHHHHHHHHHHK..', '.....KKKKKKKKKKKKKK...', '.......KSSSSSSK.......', '.......KSESSESK.......', '.......KWSSSSWK.......', '.......KWWWWWWK.......'],
+    manto: true,
+    atras: () => [],
+    frente: (n) => [
+      [8, n, ['WWWWWW', '.WWWW.', '..WW..']],
+      [2, 5, Array(n + 8).fill('T')],
+      [0, 0, ['.KKK.', 'KOOOK', 'KOWOK', 'KoOOK', '.KKK.']],
+      [3, n + 3, ['K']], [3, n + 4, ['SS']], [3, n + 5, ['K']],
+      [12, n + 3, ['KKKKK', 'KggGK', 'KgWGK', 'KggGK', 'KKKKK']],
+    ],
+  },
+  guerreiro: {
+    nome: 'Guerreiro do Trabalho', curto: 'Guerreiro', cor: '#e0405c',
+    cores: { A: [206, 210, 222], a: [130, 134, 160], R: [206, 36, 62], P: [206, 36, 62], M: [150, 156, 176], m: [96, 100, 124] },
+    cabeca: ['..........PP..........', '.........PPPP.........', '........KKKKKK........', '.......KAAAAAAK.......', '.......KGGGGGGK.......', '.......KASSSSAK.......', '.......KAESSEAK.......', '.......KAaSSaAK.......', '........KKSSKK........'],
+    manto: false,
+    atras: (n) => [capa(n)],
+    frente: (n) => [
+      [18, 5, Array(n + 8).fill('T')],
+      [15, 0, ['KKKKKKKK', 'KMMMMMmK', 'KMMMMMmK', 'KMMMMMmK', 'KKKKKKKK']],
+      [17, n + 4, ['SS']],
+    ],
+  },
+};
+const ORDEM = ['mestre', 'escudeiro', 'mago', 'guerreiro'];
+
+function compilar(id, corpo) {
+  const d = DEFS[id], n = d.cabeca.length, grade = new Map();
+  const put = (x, y, ch) => grade.set(x + ',' + y, [x, y, ch]);
+  const carimbar = ([x0, y0, ls]) => ls.forEach((l, dy) => [...l].forEach((ch, dx) => { if (ch !== '.') put(x0 + dx, y0 + dy, ch); }));
+  d.atras(n).forEach(carimbar);
+  d.cabeca.concat(corpo).forEach((l, y) => [...l].forEach((ch, x) => { if (ch !== '.') put(x, y, ch); }));
+  (d.apaga ? d.apaga(n) : []).forEach(([x, y]) => grade.delete(x + ',' + y));
+  d.frente(n).forEach(carimbar);
+  const cores = Object.assign({}, BASE, d.cores);
+  const px = [...grade.values()];
+  const minX = Math.min(...px.map(p => p[0])), maxX = Math.max(...px.map(p => p[0]));
+  const minY = Math.min(...px.map(p => p[1])), maxY = Math.max(...px.map(p => p[1]));
+  const w = maxX - minX + 1, h = maxY - minY + 1;
+  const pes = n + corpo.length; // linha logo abaixo dos pés
+  const fazer = (inverter) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    px.forEach(([x, y, ch]) => r(g, inverter ? (maxX - x) : (x - minX), y - minY, 1, 1, hex(cores[ch])));
+    return c;
+  };
+  const centro = 10.5;
+  return {
+    normal: fazer(false), invertido: fazer(true), w, h,
+    ax: centro - minX, axInv: maxX - centro + 1, ay: pes - minY, topo: pes - minY,
+  };
+}
+const SPRITES = {};
+ORDEM.forEach(id => {
+  const m = DEFS[id].manto;
+  SPRITES[id] = { parado: compilar(id, m ? MANTO : CORPO), passoA: compilar(id, m ? MANTO_A : CORPO_A), passoB: compilar(id, m ? MANTO_B : CORPO_B) };
+});
+
+// Brasão do QG (cabeçalho e porta)
+function desenharBrasao(c) {
+  const g = c.getContext('2d');
+  stamp(g, 0, 0, [
+    '..KKKKKKKKKKKK..', '.KGGGGGGGGGGGGK.', 'KGgDDDDDDDDDDgGK', 'KGDDDDDGGDDDDDGK', 'KGDDDDGWWGDDDDGK', 'KGDDDGWWWWGDDDGK',
+    'KGDDDDGWWGDDDDGK', 'KGDDDDDGGDDDDDGK', 'KGDDDDDDDDDDDDGK', '.KGDDDDDDDDDDGK.', '.KGgDDDDDDDDgGK.', '..KGDDDDDDDDGK..',
+    '...KGgDDDDgGK...', '....KGGDDGGK....', '.....KKGGKK.....', '.......KK.......',
+  ], { K: '#181425', G: '#ffcd3c', g: '#c88c1e', D: '#3c69d7', W: '#ffffff' });
+}
+desenharBrasao($('brasao'));
+
+// =====================================================================
+// Cenário: salão do castelo (fundo fixo)
+// =====================================================================
+const PAL = {
+  k: '#181425', muro: '#4a4561', muro2: '#544f6d', muro3: '#3f3a55', reboco: '#2d2940', murolz: '#615b7c',
+  piso: '#5b5470', piso2: '#56506a', piso3: '#625b78', rejunte: '#463f5a', pisolz: '#6b6484',
+  mad: '#a0703f', mad2: '#7d5530', mad3: '#5a3a20', mad4: '#3e2716', madlz: '#bb8a52',
+  ouro: '#f2c14e', ouro2: '#c9962a', perg: '#efe2bf', perg2: '#cbb98f', carmim: '#8c2a3c', carmim2: '#6b1f2e', carmimlz: '#a83a4c',
+  pedra: '#6e6886', pedra2: '#57516c', pedralz: '#857f9c', ferro: '#2b2836', ferrolz: '#55526a',
+};
+
+const LIMITE_MURO = 86;
+
+function pintarFundo() {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const rnd = semente(20261014);
+
+  // ---- muro de pedra
+  r(g, 0, 0, W, LIMITE_MURO, PAL.reboco);
+  for (let y = 4, lin = 0; y < LIMITE_MURO; y += 9, lin++) {
+    for (let x = (lin % 2 ? -9 : 0); x < W; x += 18) {
+      const t = rnd(), cor = t < .33 ? PAL.muro : t < .66 ? PAL.muro2 : PAL.muro3;
+      r(g, x + 1, y + 1, 17, 8, cor);
+      r(g, x + 1, y + 1, 17, 1, PAL.murolz);
+      r(g, x + 1, y + 8, 17, 1, PAL.muro3);
+      if (rnd() < .12) r(g, x + 4 + (rnd() * 9 | 0), y + 3 + (rnd() * 4 | 0), 2, 1, PAL.reboco);
+    }
+  }
+  // cornija
+  r(g, 0, 0, W, 5, '#2a2638'); r(g, 0, 5, W, 1, '#6a6488'); r(g, 0, 6, W, 1, '#1f1c2b');
+  // rodapé e sombra no chão
+  r(g, 0, LIMITE_MURO - 4, W, 4, '#36314a'); r(g, 0, LIMITE_MURO - 4, W, 1, '#5d5778');
+
+  // ---- piso de lajotas
+  for (let y = LIMITE_MURO, lin = 0; y < H; y += 14, lin++) {
+    for (let x = (lin % 2 ? -10 : 0); x < W; x += 20) {
+      const t = rnd(), cor = t < .4 ? PAL.piso : t < .75 ? PAL.piso2 : PAL.piso3;
+      r(g, x, y, 20, 14, PAL.rejunte);
+      r(g, x + 1, y + 1, 19, 13, cor);
+      r(g, x + 1, y + 1, 19, 1, PAL.pisolz);
+      r(g, x + 1, y + 1, 1, 12, PAL.pisolz);
+      if (rnd() < .1) { const cx = x + 5 + (rnd() * 10 | 0), cy = y + 4 + (rnd() * 6 | 0); r(g, cx, cy, 3, 1, PAL.rejunte); r(g, cx + 2, cy + 1, 2, 1, PAL.rejunte); }
+      if (rnd() < .06) r(g, x + 3 + (rnd() * 12 | 0), y + 10, 2, 2, '#4f6b4a');
+    }
+  }
+  // sombra do muro no chão
+  for (let i = 0; i < 8; i++) { g.globalAlpha = .28 - i * .033; r(g, 0, LIMITE_MURO + i, W, 1, '#0d0b14'); }
+  g.globalAlpha = 1;
+
+  // ---- tapete vermelho da porta até a frente
+  const tx = 226, tw = 28;
+  r(g, tx, LIMITE_MURO - 2, tw, H - LIMITE_MURO + 2, PAL.carmim);
+  r(g, tx, LIMITE_MURO - 2, 2, H, PAL.ouro2); r(g, tx + tw - 2, LIMITE_MURO - 2, 2, H, PAL.ouro2);
+  r(g, tx + 2, LIMITE_MURO - 2, 1, H, PAL.carmim2); r(g, tx + tw - 3, LIMITE_MURO - 2, 1, H, PAL.carmim2);
+  for (let y = LIMITE_MURO + 6; y < H; y += 14) {
+    r(g, tx + 13, y, 2, 1, PAL.ouro2); r(g, tx + 12, y + 1, 4, 1, PAL.carmimlz); r(g, tx + 11, y + 2, 6, 1, PAL.ouro2);
+    r(g, tx + 12, y + 3, 4, 1, PAL.carmimlz); r(g, tx + 13, y + 4, 2, 1, PAL.ouro2);
+  }
+
+  // ---- colunas
+  [[124, 12], [344, 12]].forEach(([x, w]) => {
+    r(g, x, 0, w, LIMITE_MURO + 2, PAL.pedra);
+    r(g, x, 0, 2, LIMITE_MURO + 2, PAL.pedralz); r(g, x + w - 3, 0, 3, LIMITE_MURO + 2, PAL.pedra2);
+    for (let y = 10; y < LIMITE_MURO; y += 12) r(g, x, y, w, 1, PAL.pedra2);
+    r(g, x - 2, 6, w + 4, 4, PAL.pedralz); r(g, x - 2, 10, w + 4, 1, PAL.pedra2);
+    r(g, x - 2, LIMITE_MURO - 4, w + 4, 6, PAL.pedra); r(g, x - 2, LIMITE_MURO - 4, w + 4, 1, PAL.pedralz); r(g, x - 2, LIMITE_MURO + 2, w + 4, 1, '#2a2638');
+    // suporte da tocha
+    r(g, x + 4, 38, 4, 2, PAL.ferrolz); r(g, x + 5, 40, 2, 8, PAL.ferro); r(g, x + 3, 34, 6, 4, PAL.ferro); r(g, x + 3, 34, 6, 1, PAL.ferrolz);
+  });
+
+  // ---- janelas góticas (o céu é pintado ao vivo)
+  JANELAS.forEach(([x, y, w, h]) => {
+    r(g, x - 3, y - 3, w + 6, h + 6, PAL.pedra2);
+    r(g, x - 2, y - 2, w + 4, h + 4, PAL.pedralz);
+    r(g, x - 3, y + h + 2, w + 6, 3, PAL.pedra); r(g, x - 3, y + h + 2, w + 6, 1, PAL.pedralz);
+  });
+
+  // ---- porta principal
+  const px0 = 214, pw = 52;
+  r(g, px0, 12, pw, LIMITE_MURO - 12, PAL.pedra2);
+  r(g, px0 + 2, 14, pw - 4, LIMITE_MURO - 14, PAL.pedralz);
+  for (let i = 0; i < 6; i++) { r(g, px0 + 2 + i, 14 + (5 - i) * 2, 1, 2, PAL.pedra2); r(g, px0 + pw - 3 - i, 14 + (5 - i) * 2, 1, 2, PAL.pedra2); }
+  const ix = px0 + 7, iw = pw - 14;
+  r(g, ix, 20, iw, LIMITE_MURO - 20, '#21170f');
+  r(g, ix + 3, 18, iw - 6, 2, '#21170f');
+  for (let x = ix + 1; x < ix + iw - 1; x += 6) { r(g, x, 22, 5, LIMITE_MURO - 22, PAL.mad3); r(g, x, 22, 1, LIMITE_MURO - 22, PAL.mad2); }
+  r(g, ix + iw / 2 - 1, 22, 2, LIMITE_MURO - 22, '#21170f');
+  [36, 66].forEach(y => { r(g, ix, y, iw, 3, PAL.ferro); r(g, ix, y, iw, 1, PAL.ferrolz); for (let x = ix + 3; x < ix + iw; x += 6) r(g, x, y + 1, 1, 1, '#8c88a0'); });
+  [ix + iw / 2 - 6, ix + iw / 2 + 3].forEach(x => { r(g, x, 50, 3, 1, PAL.ouro2); r(g, x, 51, 1, 3, PAL.ouro2); r(g, x + 2, 51, 1, 3, PAL.ouro2); r(g, x, 54, 3, 1, PAL.ouro2); });
+  // brasão acima da porta
+  const b = document.createElement('canvas'); b.width = 16; b.height = 16; desenharBrasao(b); g.drawImage(b, 232, -1, 16, 16);
+
+  // ---- mural de notícias (Escudeiro)
+  r(g, 16, 14, 94, 52, PAL.mad4); r(g, 18, 16, 90, 48, PAL.mad2); r(g, 18, 16, 90, 1, PAL.madlz);
+  r(g, 21, 19, 84, 42, '#b8915c');
+  for (let i = 0; i < 70; i++) r(g, 21 + (rnd() * 84 | 0), 19 + (rnd() * 42 | 0), 1, 1, rnd() < .5 ? '#a67f4c' : '#c79f68');
+  const notas = [[24, 22, 20, 16, '#c0392b'], [47, 21, 16, 12, '#3c69d7'], [66, 23, 18, 14, '#2fb36e'], [87, 21, 15, 18, '#f2c14e'],
+    [25, 41, 15, 16, '#9a63e6'], [43, 37, 22, 20, '#c0392b'], [68, 40, 14, 17, '#3c69d7'], [85, 42, 17, 15, '#2fb36e']];
+  notas.forEach(([x, y, w, h, pino], i) => {
+    r(g, x + 1, y + 1, w, h, 'rgba(40,25,10,.35)');
+    r(g, x, y, w, h, i % 3 === 1 ? '#f6ecd0' : PAL.perg);
+    r(g, x, y + h - 1, w, 1, PAL.perg2);
+    if (i === 5) { r(g, x + 3, y + 4, w - 6, 6, '#8aa3c9'); r(g, x + 5, y + 6, 4, 3, '#5b7aa8'); r(g, x + w - 9, y + 5, 3, 3, '#f2c14e'); }
+    for (let l = y + (i === 5 ? 12 : 4); l < y + h - 2; l += 2) r(g, x + 2, l, w - 4 - ((l * 7 + i) % 5), 1, '#9d8a68');
+    r(g, x + (w >> 1) - 1, y - 1, 3, 2, pino); r(g, x + (w >> 1), y - 1, 1, 1, '#ffffff');
+  });
+  // placa
+  r(g, 46, 8, 34, 8, PAL.mad3); r(g, 47, 9, 32, 6, PAL.mad); r(g, 47, 9, 32, 1, PAL.madlz);
+  stamp(g, 58, 10, ['KKKKKKKK.', 'KppppppK.', 'KpKKKKpK.', 'KppppppK.', '.KKKKKKKK'], { K: '#3e2716', p: '#efe2bf' });
+
+  // ---- estandartes
+  BANDEIRAS.forEach(({ x, cor }) => { r(g, x - 2, 9, 18, 2, PAL.ouro2); r(g, x - 3, 9, 1, 2, PAL.ouro); r(g, x + 16, 9, 1, 2, PAL.ouro); });
+
+  // ---- biblioteca (Mago)
+  const bx = 358, bw = 118;
+  r(g, bx, 8, bw, LIMITE_MURO + 2, PAL.mad4);
+  r(g, bx + 2, 10, bw - 4, LIMITE_MURO - 2, '#2a1a10');
+  const coresLivro = ['#b03a48', '#3c69d7', '#2f9e44', '#e0a83a', '#7e4ed6', '#d9672b', '#8a8fa3', '#1f7a75', '#c94f9b'];
+  [10, 30, 50, 70].forEach((y0, s) => {
+    let x = bx + 4;
+    while (x < bx + bw - 6) {
+      if (rnd() < .07) { // frasco
+        r(g, x + 1, y0 + 9, 4, 8, ['#5ad6ff', '#ff6b8a', '#9be86b'][(rnd() * 3) | 0]); r(g, x + 2, y0 + 7, 2, 2, '#c8cddc'); r(g, x + 1, y0 + 9, 1, 3, '#ffffff'); x += 7; continue;
+      }
+      const lw = 3 + (rnd() * 3 | 0), lh = 12 + (rnd() * 5 | 0), cor = coresLivro[(rnd() * coresLivro.length) | 0];
+      const inclinado = rnd() < .06;
+      if (inclinado) { for (let i = 0; i < lh; i++) r(g, x + (i / 3 | 0), y0 + 17 - i, lw, 1, cor); x += lw + 5; continue; }
+      r(g, x, y0 + 17 - lh, lw, lh, cor); r(g, x, y0 + 17 - lh, 1, lh, 'rgba(255,255,255,.25)');
+      r(g, x, y0 + 19 - lh, lw, 1, PAL.ouro2); r(g, x, y0 + 13, lw, 1, 'rgba(0,0,0,.25)');
+      x += lw + (rnd() < .15 ? 2 : 0);
+    }
+    r(g, bx + 2, y0 + 17, bw - 4, 3, PAL.mad2); r(g, bx + 2, y0 + 17, bw - 4, 1, PAL.madlz);
+  });
+  r(g, bx, 8, bw, 3, PAL.mad2); r(g, bx, 8, bw, 1, PAL.madlz);
+  r(g, bx, 8, 2, LIMITE_MURO + 2, PAL.mad2); r(g, bx + bw - 2, 8, 2, LIMITE_MURO + 2, PAL.mad3);
+  // escada encostada
+  for (let i = 0; i < 70; i++) { const y = 16 + i, x = 440 + Math.floor(i / 7); r(g, x, y, 2, 1, PAL.madlz); r(g, x + 10, y, 2, 1, PAL.mad); }
+  for (let y = 22; y < 86; y += 9) { const x = 440 + Math.floor((y - 16) / 7); r(g, x, y, 12, 2, PAL.mad2); }
+  return c;
+}
+
+const JANELAS = [[160, 16, 30, 52], [290, 16, 30, 52]];
+const BANDEIRAS = [{ x: 140, cor: '#2fb36e', emb: 'sol' }, { x: 197, cor: '#3c69d7', emb: 'seta' }, { x: 269, cor: '#c62f4a', emb: 'martelo' }, { x: 327, cor: '#7e4ed6', emb: 'orbe' }];
+
+// =====================================================================
+// Objetos com profundidade (ordenados pelo pé, junto com os heróis)
+// =====================================================================
+function mesa(g, x, y, w, topo, frente, cores) {
+  const [t, tl, f, fs] = cores || [PAL.mad, PAL.madlz, PAL.mad2, PAL.mad3];
+  r(g, x - 1, y - 1, w + 2, topo + frente + 2, PAL.k);
+  r(g, x, y, w, topo, t); r(g, x, y, w, 1, tl);
+  r(g, x, y + topo, w, frente, f); r(g, x, y + topo, w, 1, fs);
+  for (let px = x + 8; px < x + w - 4; px += 14) r(g, px, y + topo + 1, 1, frente - 1, fs);
+  r(g, x + 2, y + topo + frente, 3, 3, PAL.mad4); r(g, x + w - 5, y + topo + frente, 3, 3, PAL.mad4);
+  g.globalAlpha = .3; r(g, x, y + topo + frente + 3, w, 2, '#000'); g.globalAlpha = 1;
+}
+function vela(g, x, y, t, alta) {
+  const h = alta ? 6 : 4;
+  r(g, x, y - h, 2, h, '#f4ecd8'); r(g, x, y - h, 1, h, '#ffffff'); r(g, x - 1, y, 4, 1, PAL.ouro2);
+  const f = Math.sin(t * 11 + x) > .2 ? 1 : 0;
+  r(g, x, y - h - 3 - f, 2, 3 + f, '#ffb238'); r(g, x, y - h - 2, 1, 2, '#fff2a8');
+}
+function chama(g, x, y, t, s) {
+  const k = Math.sin(t * 12.3 + x) + Math.sin(t * 7.1 + y * .3);
+  const h = Math.round((7 + k * 1.4) * s), w = Math.max(3, Math.round(6 * s));
+  r(g, x - (w >> 1), y - h, w, h, '#e8590c');
+  r(g, x - (w >> 1) + 1, y - h - 2, w - 2, h, '#f59f00');
+  r(g, x - 1, y - h + 2, 2, Math.max(1, h - 3), '#ffe066');
+  if (k > 1) r(g, x + (k > 1.5 ? 1 : -2), y - h - 4, 1, 2, '#ffb238');
+}
+
+function construirProps() {
+  return [
+    // mesa de mapas do Mestre
+    { y: 141, desenhar(g, t) {
+      mesa(g, 204, 118, 72, 13, 10);
+      r(g, 209, 119, 62, 11, PAL.perg); r(g, 209, 129, 62, 1, PAL.perg2);
+      r(g, 210, 120, 60, 1, '#f8f0d8');
+      // terrenos
+      r(g, 214, 121, 9, 4, '#a9c48a'); r(g, 254, 122, 10, 5, '#a9c48a'); r(g, 232, 125, 6, 3, '#8fb0d6'); r(g, 247, 120, 4, 3, '#c8b48a');
+      // rotas para cada estação (acendem quando o Mestre convoca)
+      const brilho = estadoCena.rotaAtiva;
+      const rota = (pts, cor, ativa) => {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+          for (let k = 0; k <= n; k++) {
+            if (!ativa && k % 2) continue;
+            r(g, Math.round(x0 + (x1 - x0) * k / n), Math.round(y0 + (y1 - y0) * k / n), 1, 1, ativa && ((k + Math.floor(t * 18)) % 4 < 2) ? '#fff6c2' : cor);
+          }
+        }
+      };
+      rota([[240, 125], [226, 122], [213, 121]], '#2fb36e', brilho === 'escudeiro');
+      rota([[240, 125], [255, 121], [268, 120]], '#7e4ed6', brilho === 'mago');
+      rota([[240, 125], [252, 127], [267, 128]], '#c62f4a', brilho === 'guerreiro');
+      r(g, 239, 124, 3, 3, PAL.ouro); r(g, 240, 125, 1, 1, PAL.k);
+      // bússola e vela
+      r(g, 262, 116, 6, 4, PAL.ouro2); r(g, 263, 117, 4, 2, '#f8f0d8'); r(g, 265, 117, 1, 1, '#c62f4a');
+      vela(g, 207, 120, t, false);
+    } },
+    // mesa do Escudeiro
+    { y: 120, desenhar(g, t) {
+      mesa(g, 38, 104, 66, 10, 7);
+      [[44, 98], [49, 99], [46, 96]].forEach(([x, y]) => { r(g, x, y, 9, 4, '#f4ead0'); r(g, x, y + 3, 9, 1, PAL.perg2); r(g, x + 8, y, 2, 4, PAL.carmim); });
+      r(g, 64, 101, 14, 6, PAL.perg); r(g, 64, 106, 14, 1, PAL.perg2); for (let l = 102; l < 106; l += 2) r(g, 66, l, 9, 1, '#9d8a68');
+      r(g, 83, 100, 5, 5, PAL.k); r(g, 84, 101, 3, 3, '#2b3b6e'); r(g, 86, 93, 1, 8, '#ffffff'); r(g, 87, 93, 2, 4, '#e6e6f0');
+      vela(g, 97, 106, t, true);
+    } },
+    // caixote de pergaminhos
+    { y: 112, desenhar(g) {
+      r(g, 14, 98, 18, 14, PAL.k); r(g, 15, 99, 16, 12, PAL.mad2); r(g, 15, 99, 16, 1, PAL.madlz); r(g, 15, 104, 16, 1, PAL.mad3);
+      [[17, 95], [21, 94], [25, 96]].forEach(([x, y]) => { r(g, x, y, 4, 6, PAL.perg); r(g, x, y, 4, 1, '#ffffff'); r(g, x, y + 2, 4, 1, '#c0392b'); });
+    } },
+    // mesa do Mago
+    { y: 120, desenhar(g, t) {
+      mesa(g, 378, 104, 68, 10, 7, ['#6d4a8a', '#8a63aa', '#4f3366', '#3c2550']);
+      r(g, 400, 104, 24, 10, '#4a2f6a'); r(g, 400, 104, 24, 1, PAL.ouro2); r(g, 400, 113, 24, 1, PAL.ouro2);
+      const ativo = estadoCena.magoTrabalhando;
+      r(g, 403, 101, 9, 7, '#f4ead0'); r(g, 412, 101, 9, 7, '#f4ead0'); r(g, 411, 101, 2, 7, PAL.perg2);
+      for (let l = 103; l < 107; l += 2) { r(g, 404, l, 6, 1, '#9d8a68'); r(g, 414, l, 6, 1, '#9d8a68'); }
+      if (ativo) { g.globalAlpha = .5 + .3 * Math.sin(t * 5); r(g, 402, 99, 20, 2, '#b8f0ff'); g.globalAlpha = 1; }
+      r(g, 388, 100, 6, 6, '#3c69d7'); r(g, 388, 100, 6, 1, '#6a8ff0'); r(g, 389, 99, 4, 1, PAL.ouro2);
+      r(g, 428, 99, 5, 7, '#5ad6ff'); r(g, 429, 97, 3, 2, '#c8cddc'); r(g, 428, 99, 1, 3, '#ffffff');
+      vela(g, 383, 106, t, true); vela(g, 438, 106, t, false);
+    } },
+    // pedestal do orbe
+    { y: 122, desenhar(g, t) {
+      r(g, 451, 98, 14, 24, PAL.k); r(g, 452, 99, 12, 22, PAL.pedra); r(g, 452, 99, 2, 22, PAL.pedralz); r(g, 461, 99, 3, 22, PAL.pedra2);
+      r(g, 450, 96, 16, 4, PAL.pedralz); r(g, 450, 119, 16, 3, PAL.pedra2);
+      const p = (Math.sin(t * 2.4) + 1) / 2;
+      r(g, 453, 86, 10, 10, PAL.k); r(g, 454, 87, 8, 8, p > .5 ? '#7fe3ff' : '#5ad6ff'); r(g, 455, 88, 3, 2, '#ffffff'); r(g, 459, 92, 2, 2, '#2f9fdc');
+    } },
+    // mesa de guerra
+    { y: 214, desenhar(g, t) {
+      mesa(g, 326, 188, 98, 15, 10);
+      r(g, 331, 189, 88, 13, '#93a86a'); r(g, 331, 189, 88, 1, '#b2c58a');
+      for (let i = 0; i < 6; i++) r(g, 340 + i * 6, 190 + (i % 3), 4, 3, '#7a8f55');
+      r(g, 372, 189, 2, 13, '#5b8fd1'); r(g, 374, 193, 2, 9, '#5b8fd1');
+      [[396, 191], [401, 193], [408, 190]].forEach(([x, y]) => { r(g, x, y, 4, 3, '#8c7a5a'); r(g, x + 1, y - 1, 2, 1, '#e8e2d0'); });
+      [[343, 195, '#c62f4a'], [352, 192, '#c62f4a'], [384, 197, '#3c69d7'], [360, 198, '#c62f4a'], [392, 196, '#3c69d7']].forEach(([x, y, c]) => { r(g, x, y, 3, 3, PAL.k); r(g, x, y, 2, 2, c); });
+      r(g, 412, 196, 6, 1, '#e8e8f0'); r(g, 411, 195, 1, 3, PAL.ouro2); r(g, 408, 196, 3, 1, PAL.mad3);
+    } },
+    // suporte de armas
+    { y: 208, desenhar(g) {
+      r(g, 436, 168, 3, 40, PAL.mad3); r(g, 466, 168, 3, 40, PAL.mad3); r(g, 434, 176, 37, 3, PAL.mad2); r(g, 434, 198, 37, 3, PAL.mad2); r(g, 434, 176, 37, 1, PAL.madlz);
+      [442, 450, 458].forEach((x, i) => { r(g, x, 160 + i * 2, 2, 34, '#d6dbe6'); r(g, x, 160 + i * 2, 1, 34, '#ffffff'); r(g, x - 2, 192, 6, 2, PAL.ouro2); r(g, x, 194, 2, 6, PAL.mad3); });
+      r(g, 463, 150, 1, 54, PAL.mad2); r(g, 462, 147, 3, 4, '#aab2bd');
+      g.globalAlpha = .3; r(g, 434, 206, 37, 3, '#000'); g.globalAlpha = 1;
+    } },
+    // armadura de exposição
+    { y: 206, desenhar(g) {
+      stamp(g, 296, 176, [
+        '....KKKK....', '...KMMMMK...', '...KMKKMK...', '...KMMMMK...', '..KKKMMKKK..', '.KMMMMMMMMK.', '.KMKMMMMKMK.', '.KMKMRRMKMK.',
+        '.KK.MMMM.KK.', '....MKKM....', '....MKKM....', '....MK.M....', '...KMK.MK...', '..KKKKKKKK..', '..KTTTTTTK..', '...KKKKKK...',
+      ], { K: '#181425', M: '#aab2bd', R: '#c62f4a', T: '#5a3a20' });
+      r(g, 301, 191, 2, 15, PAL.mad3);
+      g.globalAlpha = .3; r(g, 297, 206, 10, 2, '#000'); g.globalAlpha = 1;
+    } },
+    // lareira da taverna
+    { y: 198, desenhar(g, t) {
+      r(g, 22, 120, 26, 34, PAL.k); r(g, 23, 121, 24, 33, PAL.pedra2);
+      for (let y = 124; y < 154; y += 6) for (let x = 23 + ((y / 6) % 2 ? 3 : 0); x < 47; x += 7) r(g, x, y, 6, 5, PAL.pedra);
+      r(g, 12, 150, 46, 48, PAL.k); r(g, 13, 151, 44, 46, PAL.pedra);
+      for (let y = 152; y < 196; y += 7) for (let x = 13 + ((y / 7) % 2 ? 4 : 0); x < 57; x += 9) { r(g, x, y, 8, 6, PAL.pedralz); r(g, x, y + 5, 8, 1, PAL.pedra2); }
+      r(g, 10, 148, 50, 6, PAL.mad2); r(g, 10, 148, 50, 1, PAL.madlz); r(g, 10, 153, 50, 1, PAL.mad4);
+      r(g, 20, 162, 30, 30, '#140d0b'); r(g, 20, 162, 30, 2, '#2a1c16');
+      r(g, 24, 186, 22, 4, PAL.mad3); r(g, 26, 184, 18, 3, PAL.mad2);
+      chama(g, 30, 186, t, 1.5); chama(g, 39, 187, t + .7, 1.2);
+      r(g, 22, 189, 26, 2, '#e8590c');
+      // canecas na cornija
+      r(g, 16, 143, 5, 5, '#c8cddc'); r(g, 16, 143, 5, 1, '#ffffff'); r(g, 50, 142, 4, 6, '#8a5c34');
+    } },
+    // banco de trás
+    { y: 211, desenhar(g) { r(g, 60, 205, 100, 6, PAL.k); r(g, 61, 206, 98, 4, PAL.mad2); r(g, 61, 206, 98, 1, PAL.madlz); } },
+    // mesa da taverna
+    { y: 234, desenhar(g, t) {
+      mesa(g, 56, 214, 108, 12, 8);
+      [[70, 210], [96, 211], [124, 210], [146, 211]].forEach(([x, y], i) => {
+        r(g, x, y, 6, 7, PAL.k); r(g, x + 1, y + 1, 4, 6, i % 2 ? '#c8cddc' : '#a0703f'); r(g, x + 1, y, 4, 2, '#fffbe8'); r(g, x + 5, y + 2, 2, 3, PAL.k);
+      });
+      r(g, 104, 219, 14, 4, '#e0d6c0'); r(g, 106, 216, 10, 4, '#c98a3e'); r(g, 107, 216, 8, 1, '#e3a75a');
+      vela(g, 86, 220, t, false); vela(g, 136, 220, t, false);
+    } },
+    // banco da frente
+    { y: 247, desenhar(g) { r(g, 62, 240, 96, 7, PAL.k); r(g, 63, 241, 94, 5, PAL.mad2); r(g, 63, 241, 94, 1, PAL.madlz); r(g, 66, 246, 3, 4, PAL.mad4); r(g, 151, 246, 3, 4, PAL.mad4); } },
+    // barris
+    { y: 262, desenhar(g) {
+      const barril = (x, y) => {
+        r(g, x, y, 14, 18, PAL.k); r(g, x + 1, y + 1, 12, 16, PAL.mad2); r(g, x + 1, y + 1, 3, 16, PAL.mad); r(g, x + 10, y + 1, 3, 16, PAL.mad3);
+        r(g, x + 1, y + 4, 12, 2, PAL.ferro); r(g, x + 1, y + 12, 12, 2, PAL.ferro); r(g, x + 2, y + 1, 10, 1, PAL.madlz);
+      };
+      barril(170, 244); barril(185, 244); barril(178, 227);
+      g.globalAlpha = .3; r(g, 170, 262, 30, 2, '#000'); g.globalAlpha = 1;
+    } },
+  ];
+}
+
+// =====================================================================
+// Mapa de caminhos (os heróis andam pelos corredores, sem atravessar móveis)
+// =====================================================================
+const NOS = {
+  hub: [240, 168], mL: [194, 122], mR: [288, 122],
+  mestre_est: [240, 124], mestre_desc: [292, 100],
+  e1: [132, 142], e2: [124, 96], escudeiro_est: [72, 107],
+  m1: [348, 142], m2: [372, 96], mago_est: [412, 107],
+  g1: [316, 178], g2: [372, 180], guerreiro_est: [372, 196],
+  t0: [204, 200], t1: [164, 202], tg: [134, 202], tm: [108, 202], te: [82, 202],
+  escudeiro_desc: [82, 220], mago_desc: [108, 220], guerreiro_desc: [134, 220],
+};
+const ARESTAS = [['hub', 'mL'], ['hub', 'mR'], ['mL', 'mestre_est'], ['mR', 'mestre_est'], ['mR', 'mestre_desc'],
+  ['hub', 'e1'], ['e1', 'e2'], ['e2', 'escudeiro_est'], ['hub', 'm1'], ['m1', 'm2'], ['m2', 'mago_est'],
+  ['hub', 'g1'], ['g1', 'g2'], ['g2', 'guerreiro_est'], ['hub', 't0'], ['t0', 't1'], ['t1', 'tg'], ['tg', 'tm'], ['tm', 'te'],
+  ['te', 'escudeiro_desc'], ['tm', 'mago_desc'], ['tg', 'guerreiro_desc'], ['e1', 't0']];
+const VIZ = {}; Object.keys(NOS).forEach(k => VIZ[k] = []);
+ARESTAS.forEach(([a, b]) => { VIZ[a].push(b); VIZ[b].push(a); });
+function caminho(de, para) {
+  const ant = { [de]: null }, fila = [de];
+  while (fila.length) { const u = fila.shift(); if (u === para) break; for (const v of VIZ[u]) if (!(v in ant)) { ant[v] = u; fila.push(v); } }
+  const out = []; for (let u = para; u; u = ant[u]) out.unshift(u);
+  return out;
+}
+const SENTADOS = new Set(['escudeiro_desc', 'mago_desc', 'guerreiro_desc']);
+
+// =====================================================================
+// Estado dos heróis (alimentado pela API ou pela demonstração)
+// =====================================================================
+const herois = {};
+ORDEM.forEach((id, i) => {
+  const no = id + '_desc';
+  herois[id] = { id, x: NOS[no][0], y: NOS[no][1], no, alvo: no, rota: [], andando: false, esquerda: false, fase: i * .9,
+    estado: 'descansando', rotulo: 'Descansando', desde: Date.now(), convocadoPor: null, ritual: 0 };
+});
+let eventos = [];
+const estadoCena = { rotaAtiva: null, magoTrabalhando: false };
+
+function aplicarEstados(lista, agoraMs) {
+  for (const e of lista) {
+    const h = herois[e.heroi]; if (!h) continue;
+    const novoTrabalho = e.estado === 'trabalhando' && (h.estado !== 'trabalhando' || h.rotulo !== e.rotulo);
+    if (novoTrabalho && e.convocadoPor === 'mestre' && e.heroi !== 'mestre') herois.mestre.ritual = agoraMs + 2200;
+    h.estado = e.estado; h.rotulo = e.rotulo; h.desde = new Date(e.desde).getTime(); h.convocadoPor = e.convocadoPor || null;
+  }
+}
+function alvoDe(h, agoraMs) {
+  if (h.id === 'mestre' && (h.estado === 'trabalhando' || h.ritual > agoraMs)) return 'mestre_est';
+  return h.estado === 'descansando' ? h.id + '_desc' : h.id + '_est';
+}
+
+const VELOCIDADE = 46; // px por segundo
+function mover(h, dt, agoraMs) {
+  h.alvo = alvoDe(h, agoraMs);
+  if (!h.rota.length && h.no !== h.alvo) h.rota = caminho(h.no, h.alvo).slice(1);
+  if (!h.rota.length) { h.andando = false; if (!SENTADOS.has(h.no)) h.esquerda = false; return; }
+  const [tx, ty] = NOS[h.rota[0]];
+  const dx = tx - h.x, dy = ty - h.y, d = Math.hypot(dx, dy), passo = VELOCIDADE * dt;
+  h.andando = true;
+  if (Math.abs(dx) > .3) h.esquerda = dx < 0;
+  if (d <= passo) {
+    h.x = tx; h.y = ty; h.no = h.rota.shift();
+    if (h.no !== h.alvo) h.rota = caminho(h.no, h.alvo).slice(1); // recalcula se o alvo mudou no meio do caminho
+  } else { h.x += dx / d * passo; h.y += dy / d * passo; }
+}
+
+// =====================================================================
+// Ícones dos balões
+// =====================================================================
+const ICONES = {
+  seta: ['...K...', '...GK..', 'KKKGGK.', 'KGGGGGK', 'KKKGGK.', '...GK..', '...K...'],
+  pergaminho: ['KKKKKK.', 'KPPPPPK', 'KPqqqPK', 'KPPPPPK', 'KPqqPPK', 'KPPPPPK', '.KKKKKK'],
+  livro: ['.......', 'KK...KK', 'KWWKWWK', 'KWqKWqK', 'KWWKWWK', 'KKKKKKK', '.......'],
+  martelo: ['KKKKK..', 'KMMMK..', 'KMMMK..', 'KKKKKK.', '..KTK..', '..KTK..', '..KKK..'],
+  check: ['......K', '.....KC', 'K...KC.', 'CK.KC..', '.CKC...', '..C....', '.......'],
+  fala: ['.......', '.......', '.......', 'K.K.K..', '.......', '.......', '.......'],
+};
+const COR_ICONE = { K: '#181425', G: '#e0a72c', P: '#efe2bf', q: '#a08a60', W: '#ffffff', M: '#9aa2b4', T: '#8a5c34', C: '#3fbf63' };
+function iconeDe(h) {
+  const t = h.rotulo || '';
+  if (h.estado === 'esperando') return 'espera';
+  if (/herói certo/.test(t)) return 'seta';
+  if (/notícias/.test(t)) return 'pergaminho';
+  if (/Moodle/.test(t)) return 'livro';
+  if (/comanda/.test(t)) return 'martelo';
+  if (/Conferindo o dia/.test(t)) return 'check';
+  return 'fala';
+}
+
+// =====================================================================
+// Céu e luz conforme a hora
+// =====================================================================
+function corCeu(hora) {
+  // [hora, topo, base]
+  const pontos = [[0, '#0b1030', '#1a2350'], [5, '#141a44', '#3a2f6a'], [6, '#4a3f8a', '#f39a6b'], [7.5, '#5fa8ef', '#bfe4ff'],
+    [16.5, '#5fa8ef', '#bfe4ff'], [18, '#6a4f9a', '#ff9a5c'], [19.2, '#22285e', '#6a3f7a'], [20.5, '#0b1030', '#1a2350'], [24, '#0b1030', '#1a2350']];
+  let a = pontos[0], b = pontos[1];
+  for (let i = 0; i < pontos.length - 1; i++) if (hora >= pontos[i][0] && hora <= pontos[i + 1][0]) { a = pontos[i]; b = pontos[i + 1]; break; }
+  const f = (hora - a[0]) / ((b[0] - a[0]) || 1);
+  return [mix(a[1], b[1], f), mix(a[2], b[2], f)];
+}
+function mix(c1, c2, f) {
+  const p = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  const [x, y] = [p(c1), p(c2)];
+  return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * f)).join(',')})`;
+}
+function escuridao(hora) {
+  if (hora >= 7.5 && hora <= 16.5) return .16;
+  if (hora < 5 || hora > 20.5) return .58;
+  if (hora < 7.5) return .58 - (hora - 5) / 2.5 * .42;
+  return .16 + (hora - 16.5) / 4 * .42;
+}
+
+const estrelas = (() => { const rnd = semente(99); return Array.from({ length: 22 }, () => [rnd(), rnd(), rnd()]); })();
+function pintarJanelas(g, hora, t) {
+  const [topo, base] = corCeu(hora);
+  const noite = hora < 5.5 || hora > 19.5;
+  JANELAS.forEach(([x, y, w, h], j) => {
+    for (let i = 0; i < h; i++) {
+      const larg = i < 8 ? Math.max(4, Math.round(w * Math.sin((i + 2) / 10 * Math.PI / 2))) : w;
+      const f = i / h;
+      r(g, x + ((w - larg) >> 1), y + i, larg, 1, mix(rgbHex(topo), rgbHex(base), f));
+    }
+    if (noite) estrelas.forEach(([a, b, c], k) => { if ((k + j) % 2) return; const sx = x + 3 + a * (w - 6), sy = y + 9 + b * (h * .55); if (Math.sin(t * 2 + c * 10) > -.3) r(g, sx, sy, 1, 1, '#fff7d6'); });
+    if (j === 1) {
+      if (noite) { r(g, x + 18, y + 14, 6, 6, '#f4f1d8'); r(g, x + 20, y + 14, 4, 4, mix(rgbHex(topo), rgbHex(base), .2)); }
+      else if (hora > 6 && hora < 18.5) { const sy = y + 36 - Math.sin((hora - 6) / 12.5 * Math.PI) * 26; r(g, x + 10, sy, 7, 7, '#fff2a8'); r(g, x + 11, sy + 1, 5, 5, '#ffe066'); }
+    }
+    // silhueta de colinas
+    for (let k = 0; k < w; k++) { const hh = 4 + Math.round(3 * Math.sin((k + j * 13) / 5)); r(g, x + k, y + h - hh, 1, hh, noite ? '#121634' : '#4c7a5a'); }
+    // caixilho e vitral
+    r(g, x + (w >> 1) - 1, y + 2, 2, h - 2, '#2b2836'); r(g, x, y + 26, w, 2, '#2b2836');
+    ['#c62f4a', '#3c69d7', '#f2c14e', '#2fb36e'].forEach((c, k) => { r(g, x + 1 + k * 7, y + h - 2, 6, 2, c); });
+    r(g, x, y + h - 3, w, 1, '#2b2836');
+  });
+}
+function rgbHex(rgb) { const m = rgb.match(/\d+/g).map(Number); return '#' + m.map(v => v.toString(16).padStart(2, '0')).join(''); }
+
+function pintarBandeiras(g, t) {
+  BANDEIRAS.forEach(({ x, cor, emb }, i) => {
+    const onda = Math.round(Math.sin(t * 1.6 + i) * .9);
+    r(g, x, 11, 14, 26, PAL.k); r(g, x + 1, 11, 12, 25, cor); r(g, x + 1, 11, 2, 25, 'rgba(255,255,255,.18)'); r(g, x + 11, 11, 2, 25, 'rgba(0,0,0,.2)');
+    r(g, x + 1 + onda, 36, 5, 4, cor); r(g, x + 8 + onda, 36, 5, 4, cor); r(g, x + 1 + onda, 39, 5, 1, PAL.k); r(g, x + 8 + onda, 39, 5, 1, PAL.k);
+    r(g, x + 1, 33, 12, 1, PAL.ouro2);
+    const em = { sol: ['.Y.Y.', 'YYYYY', '.YYY.', 'YYYYY', '.Y.Y.'], seta: ['..Y..', '...Y.', 'YYYYY', '...Y.', '..Y..'], martelo: ['YYYYY', 'YYYYY', '..Y..', '..Y..', '..Y..'], orbe: ['.YYY.', 'YCCCY', 'YCWCY', 'YCCCY', '.YYY.'] }[emb];
+    stamp(g, x + 5, 18, em, { Y: '#ffcd3c', C: '#5ad6ff', W: '#ffffff' });
+  });
+}
+
+// =====================================================================
+// Partículas: brasas da lareira, faíscas do Mago, poeira na luz
+// =====================================================================
+const particulas = [];
+function emitir(dt, t, hora) {
+  if (Math.random() < dt * 6) particulas.push({ x: 30 + Math.random() * 14, y: 180, vx: (Math.random() - .5) * 6, vy: -14 - Math.random() * 10, vida: 1.6, cor: Math.random() < .5 ? '#ffb238' : '#ff7a2c' });
+  if (estadoCena.magoTrabalhando && Math.random() < dt * 10) {
+    const m = herois.mago; particulas.push({ x: m.x + (Math.random() - .5) * 26, y: m.y - 10 - Math.random() * 18, vx: 0, vy: -6, vida: 1, cor: Math.random() < .5 ? '#b8f0ff' : '#e5c6ff' });
+  }
+  if (hora > 7 && hora < 17.5 && Math.random() < dt * 2) particulas.push({ x: 160 + Math.random() * 170, y: 70 + Math.random() * 90, vx: 3 + Math.random() * 2, vy: 1, vida: 3, cor: 'rgba(255,248,220,.55)' });
+  for (let i = particulas.length - 1; i >= 0; i--) {
+    const p = particulas[i]; p.vida -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.vida <= 0) particulas.splice(i, 1);
+  }
+}
+
+// =====================================================================
+// Desenho de cada quadro
+// =====================================================================
+const tela = $('tela'), ctx = tela.getContext('2d');
+const luz = document.createElement('canvas'); luz.width = W; luz.height = H; const lctx = luz.getContext('2d');
+let fundo = null, props = null;
+
+function desenharHeroi(g, h, t) {
+  const sp = SPRITES[h.id];
+  const quadro = h.andando ? (Math.floor(t * 7 + h.fase) % 2 ? sp.passoA : sp.passoB) : sp.parado;
+  const trabalhando = !h.andando && h.estado === 'trabalhando';
+  const pulo = h.andando ? Math.floor(t * 7) % 2 : trabalhando ? Math.floor(t * 3.2 + h.fase) % 2 : 0;
+  const img = h.esquerda ? quadro.invertido : quadro.normal;
+  const ax = h.esquerda ? quadro.axInv : quadro.ax;
+  const x = Math.round(h.x - ax), y = Math.round(h.y - quadro.ay - pulo);
+  g.globalAlpha = .32; r(g, Math.round(h.x) - 7, Math.round(h.y) - 1, 14, 3, '#000'); r(g, Math.round(h.x) - 5, Math.round(h.y) - 2, 10, 1, '#000'); g.globalAlpha = 1;
+  g.drawImage(img, x, y);
+  h.caixa = { x, y, w: quadro.w, h: quadro.h };
+}
+
+function desenharBalao(g, h, t) {
+  if (h.andando || h.estado === 'descansando') return;
+  const icone = iconeDe(h);
+  const x = Math.round(h.x) - 6, y = h.caixa.y - 15 + (Math.floor(t * 2 + h.fase) % 2);
+  if (icone === 'espera') {
+    const on = Math.floor(t * 3) % 2;
+    r(g, x, y, 13, 12, PAL.k); r(g, x + 1, y + 1, 11, 10, on ? '#ffcd3c' : '#ffe08a'); r(g, x + 1, y + 1, 11, 1, '#fff2c2');
+    r(g, x + 5, y + 3, 3, 4, PAL.k); r(g, x + 5, y + 8, 3, 2, PAL.k);
+    r(g, x + 5, y + 12, 3, 1, PAL.k); r(g, x + 6, y + 13, 1, 1, PAL.k);
+    return;
+  }
+  r(g, x, y, 13, 12, PAL.k); r(g, x + 1, y + 1, 11, 10, '#ffffff'); r(g, x + 1, y + 10, 11, 1, '#d6d2e2');
+  r(g, x + 5, y + 12, 3, 1, PAL.k); r(g, x + 6, y + 13, 1, 1, PAL.k);
+  if (icone === 'fala') { const n = Math.floor(t * 4) % 4; for (let i = 0; i < 3; i++) r(g, x + 3 + i * 3, y + 5, 2, 2, i < n ? PAL.k : '#c9c4d6'); }
+  else stamp(g, x + 3, y + 2, ICONES[icone], COR_ICONE);
+}
+
+function desenharLigacoes(g, t) {
+  const m = herois.mestre;
+  estadoCena.rotaAtiva = null;
+  ORDEM.slice(1).forEach(id => {
+    const h = herois[id];
+    if (h.convocadoPor !== 'mestre' || h.estado !== 'trabalhando') return;
+    estadoCena.rotaAtiva = id;
+    const x0 = m.x, y0 = m.y - 14, x1 = h.x, y1 = h.y - 12;
+    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0));
+    for (let k = 0; k <= n; k++) {
+      const fase = (k - t * 30) % 8; const on = ((fase + 8) % 8) < 4;
+      if (!on) continue;
+      const px = Math.round(x0 + (x1 - x0) * k / n), py = Math.round(y0 + (y1 - y0) * k / n - Math.sin(k / n * Math.PI) * 10);
+      g.globalAlpha = .35; r(g, px - 1, py - 1, 3, 3, '#ffcd3c'); g.globalAlpha = 1;
+      r(g, px, py, 1, 1, '#fff2a8');
+    }
+  });
+}
+
+function pintarLuz(t, hora) {
+  const esc = escuridao(hora);
+  lctx.globalCompositeOperation = 'source-over';
+  lctx.clearRect(0, 0, W, H);
+  lctx.fillStyle = `rgba(10,8,28,${esc})`; lctx.fillRect(0, 0, W, H);
+  lctx.globalCompositeOperation = 'destination-out';
+  const furo = (x, y, raio, forca) => {
+    const gr = lctx.createRadialGradient(x, y, 0, x, y, raio);
+    gr.addColorStop(0, `rgba(0,0,0,${forca})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    lctx.fillStyle = gr; lctx.fillRect(x - raio, y - raio, raio * 2, raio * 2);
+  };
+  const tremor = (k) => 1 + Math.sin(t * 9 + k) * .04 + Math.sin(t * 13.7 + k * 2) * .03;
+  FONTES.forEach(([x, y, raio, , forca], k) => furo(x, y, raio * tremor(k), forca));
+  JANELAS.forEach(([x, y, w, h]) => { if (hora > 6.5 && hora < 18) furo(x + w / 2, y + h + 30, 70, .7); });
+  ctx.drawImage(luz, 0, 0);
+  // brilho quente por cima
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  FONTES.forEach(([x, y, raio, cor], k) => {
+    const rr = raio * .75 * tremor(k);
+    const gr = ctx.createRadialGradient(x, y, 0, x, y, rr);
+    gr.addColorStop(0, cor); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gr; ctx.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+  });
+  if (hora > 7.5 && hora < 17) {
+    JANELAS.forEach(([x, y, w, h]) => {
+      ctx.fillStyle = 'rgba(255,226,170,0.03)';
+      ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w + 60, y + h + 110); ctx.lineTo(x + 20, y + h + 110); ctx.closePath(); ctx.fill();
+    });
+  }
+  ctx.restore();
+}
+// [x, y, raio, cor do brilho, força]
+const FONTES = [
+  [130, 30, 58, 'rgba(255,150,60,.16)', .9], [350, 30, 58, 'rgba(255,150,60,.16)', .9],
+  [35, 178, 80, 'rgba(255,120,40,.22)', 1], [98, 98, 30, 'rgba(255,190,90,.12)', .7], [208, 112, 26, 'rgba(255,190,90,.1)', .6],
+  [384, 98, 28, 'rgba(255,190,90,.1)', .7], [458, 90, 40, 'rgba(90,214,255,.16)', .8], [110, 214, 40, 'rgba(255,170,70,.12)', .8],
+];
+
+function desenhar(t, hora, dt) {
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(fundo, 0, 0);
+  pintarJanelas(ctx, hora, t);
+  pintarBandeiras(ctx, t);
+  chama(ctx, 130, 36, t, .8); chama(ctx, 350, 36, t + 1.7, .8);
+  // velas flutuantes do Mago
+  [[392, 70], [420, 64], [444, 72]].forEach(([x, y], i) => vela(ctx, x, y + Math.round(Math.sin(t * 1.5 + i * 2) * 2), t, false));
+
+  estadoCena.magoTrabalhando = herois.mago.estado === 'trabalhando' && !herois.mago.andando;
+  desenharLigacoesPrevia();
+  const itens = props.map(p => ({ y: p.y, f: () => p.desenhar(ctx, t) }));
+  ORDEM.forEach(id => { const h = herois[id]; itens.push({ y: h.y + (SENTADOS.has(h.no) && !h.andando ? 0 : 0) + .5, f: () => desenharHeroi(ctx, h, t) }); });
+  itens.sort((a, b) => a.y - b.y).forEach(i => i.f());
+
+  particulas.forEach(p => { ctx.globalAlpha = Math.min(1, p.vida); r(ctx, p.x, p.y, 1, 1, p.cor); });
+  ctx.globalAlpha = 1;
+  pintarLuz(t, hora);
+  desenharLigacoes(ctx, t);
+  ORDEM.forEach(id => desenharBalao(ctx, herois[id], t));
+}
+function desenharLigacoesPrevia() {
+  estadoCena.rotaAtiva = null;
+  ORDEM.slice(1).forEach(id => { const h = herois[id]; if (h.convocadoPor === 'mestre' && h.estado === 'trabalhando') estadoCena.rotaAtiva = id; });
+}
+
+// =====================================================================
+// Interface: nomes, contadores, cartão e faixa ao vivo
+// =====================================================================
+const nomesEl = $('nomes'), cartao = $('cartao'), palco = $('quadro');
+const placas = {};
+ORDEM.forEach(id => {
+  const el = document.createElement('div'); el.className = 'nome';
+  el.innerHTML = `<i style="background:${DEFS[id].cor}"></i>${DEFS[id].curto}`;
+  nomesEl.appendChild(el); placas[id] = el;
+});
+const ROTULO_ESTADO = { trabalhando: 'TRABALHANDO', esperando: 'ESPERANDO VOCÊ', descansando: 'DESCANSANDO' };
+const COR_ESTADO = { trabalhando: 'var(--trab)', esperando: 'var(--esp)', descansando: 'var(--desc)' };
+let selecionado = null;
+
+function hhmm(ms) { return new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: DEMO ? 'UTC' : 'America/Sao_Paulo' }).format(new Date(ms)); }
+function duracao(min) { if (min < 1) return 'agora mesmo'; if (min < 60) return `há ${min} min`; const h = Math.floor(min / 60); return `há ${h}h${String(min % 60).padStart(2, '0')}`; }
+function textoAtual(h) { if (h.estado === 'descansando') return h.id === 'mestre' ? 'De guarda na entrada' : 'Na taverna'; return h.rotulo; }
+
+function atualizarInterface(agoraMs) {
+  const k = tela.getBoundingClientRect().width / W;
+  ORDEM.forEach(id => {
+    const h = herois[id], el = placas[id];
+    const sentado = !h.andando && SENTADOS.has(h.no);
+    el.style.left = `${h.x * k}px`;
+    el.style.top = `${(h.y + (sentado ? 15 : 3)) * k}px`;
+    el.classList.toggle('esperando', h.estado === 'esperando');
+  });
+  const cont = { trabalhando: 0, esperando: 0, descansando: 0 };
+  ORDEM.forEach(id => cont[herois[id].estado]++);
+  $('nTrab').textContent = cont.trabalhando; $('nEsp').textContent = cont.esperando; $('nDesc').textContent = cont.descansando;
+  if (selecionado) mostrarCartao(selecionado, agoraMs);
+}
+
+function mostrarCartao(id, agoraMs) {
+  const h = herois[id], k = tela.getBoundingClientRect().width / W;
+  const min = Math.max(0, Math.round((agoraMs - h.desde) / 60000));
+  const ultimos = eventos.filter(e => e.heroi === id).slice(0, 4);
+  cartao.innerHTML = `<h3><i style="background:${DEFS[id].cor}"></i>${DEFS[id].nome}</h3>
+    <p class="atual"><span class="chip" style="color:${COR_ESTADO[h.estado]}">${ROTULO_ESTADO[h.estado]}</span>${textoAtual(h)}</p>
+    <p class="tempo">${duracao(min)}</p>
+    <h4>ÚLTIMAS 24H</h4>
+    <ul>${ultimos.length ? ultimos.map(e => `<li><span style="color:var(--ouro);font-family:ui-monospace,monospace">${hhmm(e.em)}</span> · ${e.rotulo}</li>`).join('') : '<li>Nada por enquanto.</li>'}</ul>`;
+  cartao.style.display = 'block';
+  const larg = palco.clientWidth;
+  let left = h.x * k + 22, top = (h.y - 40) * k;
+  if (left + 262 > larg) left = h.x * k - 272;
+  cartao.style.left = `${Math.max(6, left)}px`; cartao.style.top = `${Math.max(6, Math.min(top, palco.clientHeight - cartao.offsetHeight - 6))}px`;
+}
+function heroiEm(ev) {
+  const ret = tela.getBoundingClientRect();
+  const x = (ev.clientX - ret.left) * W / ret.width, y = (ev.clientY - ret.top) * H / ret.height;
+  return ORDEM.find(id => { const c = herois[id].caixa; return c && x >= c.x - 2 && x <= c.x + c.w + 2 && y >= c.y - 2 && y <= c.y + c.h + 4; }) || null;
+}
+tela.addEventListener('pointermove', ev => { if (ev.pointerType !== 'mouse') return; selecionado = heroiEm(ev); tela.style.cursor = selecionado ? 'pointer' : 'default'; if (!selecionado) cartao.style.display = 'none'; });
+tela.addEventListener('pointerleave', () => { selecionado = null; cartao.style.display = 'none'; });
+tela.addEventListener('click', ev => { const id = heroiEm(ev); selecionado = id && id !== selecionado ? id : null; if (!selecionado) cartao.style.display = 'none'; });
+
+let ultimaChaveFaixa = '';
+function desenharFaixa() {
+  const ul = $('faixa');
+  const chave = eventos.map(e => e.em + e.heroi).join('|');
+  if (chave === ultimaChaveFaixa) return;
+  const antigos = new Set(ultimaChaveFaixa.split('|'));
+  ultimaChaveFaixa = chave;
+  if (!eventos.length) { ul.innerHTML = '<li class="vazio">Nenhuma atividade nas últimas 24 horas.</li>'; return; }
+  ul.innerHTML = eventos.slice(0, 10).map(e => `<li class="${antigos.has(e.em + e.heroi) ? '' : 'novo'}"><span class="h">${hhmm(e.em)}</span><i style="background:${DEFS[e.heroi].cor}"></i><span><b style="color:var(--texto);font-weight:600">${DEFS[e.heroi].curto}</b> · ${e.rotulo}</span></li>`).join('');
+}
+
+// =====================================================================
+// Fonte de dados 2: demonstração (um dia acelerado, sem dados reais)
+// =====================================================================
+const demo = { minuto: 6 * 60 + 30, pausado: false, idx: 0, filas: {}, atual: {} };
+const MIN_POR_SEG = 14;
+const DEMO_ROTEIRO = [
+  [7 * 60, 'escudeiro', [['buscando_noticias', 5]]],
+  [8 * 60 + 30, 'mago', [['conferindo_moodle', 4.5]]],
+  [9 * 60 + 40, 'mestre', [['roteando', 1.6, 'escudeiro', 'conversando', 4.5]]],
+  [10 * 60 + 30, 'mago', [['conferindo_moodle', 4]]],
+  [11 * 60 + 20, 'mestre', [['roteando', 1.6, 'mago', 'conversando', 4.5]]],
+  [12 * 60, 'guerreiro', [['pedindo_comanda', 6], ['lendo_comanda', 6]]],
+  [13 * 60 + 20, 'escudeiro', [['buscando_noticias', 4.5]]],
+  [14 * 60 + 40, 'mestre', [['roteando', 1.6, 'guerreiro', 'conversando', 4]]],
+  [15 * 60 + 50, 'mestre', [['roteando', 1.6, 'escudeiro', 'conversando', 3.5]]],
+  [17 * 60, 'guerreiro', [['conferindo_dia', 2.5], ['pedindo_relatorio', 5.5], ['conferindo_dia', 4.5]]],
+  [19 * 60, 'escudeiro', [['buscando_noticias', 4.5]]],
+  [19 * 60 + 30, 'mago', [['conferindo_moodle', 4]]],
+  [21 * 60, 'mestre', [['roteando', 1.6, 'mago', 'conversando', 3.5]]],
+];
+const DEMO_ATIV = {
+  roteando: ['trabalhando', 'Chamando o herói certo'], conversando: ['trabalhando', 'Respondendo você'], buscando_noticias: ['trabalhando', 'Buscando notícias'],
+  conferindo_moodle: ['trabalhando', 'Conferindo o Moodle'], lendo_comanda: ['trabalhando', 'Trabalhando na comanda'], conferindo_dia: ['trabalhando', 'Conferindo o dia'],
+  pedindo_comanda: ['esperando', 'Esperando a comanda'], pedindo_relatorio: ['esperando', 'Esperando o relatório do dia'],
+};
+const demoMs = () => Date.UTC(2026, 9, 14, 0, 0) + demo.minuto * 60000;
+function demoMarcar(id, ativ, convocadoPor) {
+  const [estado, rotulo] = ativ ? DEMO_ATIV[ativ] : ['descansando', 'Descansando'];
+  const em = demoMs();
+  aplicarEstados([{ heroi: id, estado, rotulo, desde: em, convocadoPor: convocadoPor || null }], performance.now());
+  if (estado !== 'descansando') { eventos.unshift({ heroi: id, rotulo, em }); eventos = eventos.slice(0, 30); desenharFaixa(); }
+}
+function demoReiniciar() {
+  demo.minuto = 6 * 60 + 30; demo.idx = 0; demo.filas = {}; demo.atual = {}; eventos = []; ultimaChaveFaixa = 'x';
+  ORDEM.forEach(id => { demoMarcar(id, null); const h = herois[id], no = id + '_desc'; Object.assign(h, { no, x: NOS[no][0], y: NOS[no][1], rota: [], ritual: 0 }); });
+  desenharFaixa();
+}
+function demoPasso(dt) {
+  if (demo.pausado) return;
+  demo.minuto += dt * MIN_POR_SEG;
+  while (demo.idx < DEMO_ROTEIRO.length && demo.minuto >= DEMO_ROTEIRO[demo.idx][0]) {
+    const [, id, passos] = DEMO_ROTEIRO[demo.idx++];
+    (demo.filas[id] = demo.filas[id] || []).push(...passos);
+  }
+  ORDEM.forEach(id => {
+    const h = herois[id], atual = demo.atual[id];
+    if (atual) {
+      // conta o tempo só depois de chegar à estação
+      if (!h.andando && h.no === alvoDe(h, performance.now())) atual.resta -= dt;
+      if (atual.resta > 0) return;
+      demo.atual[id] = null;
+      if (atual.depois) { const [alvo, ativ, seg] = atual.depois; (demo.filas[alvo] = demo.filas[alvo] || []).unshift([ativ, seg, null, null, null, 'mestre']); }
+      if (!(demo.filas[id] || []).length) demoMarcar(id, null);
+    }
+    const prox = (demo.filas[id] || []).shift();
+    if (prox) {
+      const [ativ, seg, alvo, ativAlvo, segAlvo, convocadoPor] = prox;
+      demo.atual[id] = { resta: seg, depois: alvo ? [alvo, ativAlvo, segAlvo] : null };
+      demoMarcar(id, ativ, convocadoPor);
+    }
+  });
+  if (demo.minuto >= 22 * 60 + 30 && ORDEM.every(id => !demo.atual[id] && !(demo.filas[id] || []).length)) demoReiniciar();
+}
+
+// =====================================================================
+// Laço principal
+// =====================================================================
+function horaDe(ms) { const d = new Date(ms); return DEMO ? d.getUTCHours() + d.getUTCMinutes() / 60 : Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'America/Sao_Paulo' }).format(d)) + d.getMinutes() / 60; }
+let antes = performance.now();
+function quadro(agora) {
+  const dt = Math.min(.05, (agora - antes) / 1000); antes = agora;
+  const t = agora / 1000;
+  if (DEMO) demoPasso(dt);
+  const relogio = DEMO ? demoMs() : Date.now() + relogioServidor;
+  const hora = horaDe(relogio);
+  ORDEM.forEach(id => mover(herois[id], dt, DEMO ? performance.now() : Date.now()));
+  emitir(dt, t, hora);
+  desenhar(t, hora, dt);
+  atualizarInterface(relogio);
+  $('relogio').textContent = hhmm(relogio);
+  requestAnimationFrame(quadro);
+}
+
+function iniciarSala() {
+
+  fundo = pintarFundo(); props = construirProps();
+  {
+    $('modo').classList.add('demo'); $('modoTexto').textContent = 'DEMO · DIA ACELERADO';
+    $('rodape').textContent = 'Demonstração: um dia inteiro do QG em cerca de um minuto, com atividades de exemplo. A sala de verdade roda ao vivo, protegida por chave, e mostra só estados e horários.';
+    $('pausar').hidden = false; $('reiniciar').hidden = false;
+    $('pausar').onclick = (e) => { demo.pausado = !demo.pausado; e.target.textContent = demo.pausado ? 'CONTINUAR' : 'PAUSAR'; };
+    $('reiniciar').onclick = demoReiniciar;
+    demoReiniciar();
+  }
+  const rolagem = $('palco'); rolagem.scrollLeft = (rolagem.scrollWidth - rolagem.clientWidth) / 2;
+  requestAnimationFrame((a) => { antes = a; quadro(a); });
+}
+
+iniciarSala();
+})();
+</script>
+</body>
+</html>
